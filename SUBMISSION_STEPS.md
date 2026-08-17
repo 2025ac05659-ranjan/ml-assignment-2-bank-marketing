@@ -10,7 +10,6 @@ Confirm the project folder contains:
 - `test_data.csv`
 - `data/bank-additional-full.csv`
 - `model/train_models.py`
-- saved model `.pkl` files
 - `outputs/model_comparison.csv`
 
 ## Step 2 - Run on BITS Virtual Lab

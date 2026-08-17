@@ -75,12 +75,6 @@ project-folder/
     bank-additional-full.csv
   model/
     train_models.py
-    logistic_regression.pkl
-    decision_tree.pkl
-    knn.pkl
-    naive_bayes.pkl
-    random_forest.pkl
-    model_bundle.pkl
   outputs/
     model_comparison.csv
     evaluation_details.json
@@ -108,6 +102,10 @@ streamlit run app.py
 
 Upload `test_data.csv` in the Streamlit app to view predictions, evaluation
 metrics, confusion matrix, and classification report.
+
+Note: On Streamlit Community Cloud, the app trains the five models from
+`data/bank-additional-full.csv` if pre-saved model files are not present. This
+keeps the GitHub repository lightweight and avoids large file upload limits.
 
 ## Streamlit App Features
 
