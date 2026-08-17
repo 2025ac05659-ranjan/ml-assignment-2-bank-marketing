@@ -5,6 +5,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 import streamlit as st
+from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -15,14 +19,102 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.tree import DecisionTreeClassifier
 
 
 ROOT = Path(__file__).resolve().parent
 BUNDLE_PATH = ROOT / "model" / "model_bundle.pkl"
+DATA_PATH = ROOT / "data" / "bank-additional-full.csv"
+TARGET = "y"
+RANDOM_STATE = 42
+
+
+def build_preprocessor(X):
+    numeric_features = X.select_dtypes(include=["int64", "float64"]).columns.tolist()
+    categorical_features = X.select_dtypes(include=["object", "category"]).columns.tolist()
+
+    numeric_pipeline = Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="median")),
+            ("scaler", StandardScaler()),
+        ]
+    )
+    categorical_pipeline = Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="most_frequent")),
+            ("encoder", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
+        ]
+    )
+
+    return ColumnTransformer(
+        transformers=[
+            ("numeric", numeric_pipeline, numeric_features),
+            ("categorical", categorical_pipeline, categorical_features),
+        ],
+        remainder="drop",
+        verbose_feature_names_out=False,
+    )
+
+
+def train_bundle_from_csv():
+    if not DATA_PATH.exists():
+        raise FileNotFoundError(
+            "Neither model/model_bundle.pkl nor data/bank-additional-full.csv was found. "
+            "Please upload both the model folder and data folder to GitHub."
+        )
+
+    df = pd.read_csv(DATA_PATH, sep=";")
+    X = df.drop(columns=[TARGET])
+    y = df[TARGET]
+    X_train, _, y_train, _ = train_test_split(
+        X,
+        y,
+        test_size=0.25,
+        random_state=RANDOM_STATE,
+        stratify=y,
+    )
+    preprocessor = build_preprocessor(X)
+    estimators = {
+        "Logistic Regression": LogisticRegression(
+            max_iter=1000, class_weight="balanced", random_state=RANDOM_STATE
+        ),
+        "Decision Tree": DecisionTreeClassifier(
+            max_depth=8, min_samples_leaf=20, class_weight="balanced", random_state=RANDOM_STATE
+        ),
+        "kNN": KNeighborsClassifier(n_neighbors=7),
+        "Naive Bayes": GaussianNB(),
+        "Random Forest": RandomForestClassifier(
+            n_estimators=150,
+            max_depth=12,
+            min_samples_leaf=8,
+            class_weight="balanced",
+            n_jobs=-1,
+            random_state=RANDOM_STATE,
+        ),
+    }
+    models = {}
+    for name, estimator in estimators.items():
+        pipeline = Pipeline(steps=[("preprocessor", preprocessor), ("model", estimator)])
+        pipeline.fit(X_train, y_train)
+        models[name] = pipeline
+
+    return {
+        "target": TARGET,
+        "positive_label": "yes",
+        "feature_columns": X.columns.tolist(),
+        "models": models,
+    }
 
 
 @st.cache_resource
 def load_bundle():
+    if not BUNDLE_PATH.exists():
+        return train_bundle_from_csv()
     return joblib.load(BUNDLE_PATH)
 
 
